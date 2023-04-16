@@ -1,0 +1,244 @@
+---
+title: "PartBETC3460"
+output: html_document
+date: "2023-04-12"
+---
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(e1071)
+library(matlib)
+library(lpSolveAPI)
+setwd("C:/Users/mubin/OneDrive - Monash University/Documents/Uni Files/Semester 1 2023/ETC3460/Assignment 1/PartB")
+rf_r <- read.csv("rf_r.csv")
+rf_r$Daily_Return <- as.numeric(rf_r$Daily_Return)/100
+rf_r$Date <- as.Date(rf_r$Date, format = "%d-%m-%Y")
+rf_r <- rf_r %>% filter(Date > as.Date("2021-01-01"))
+rf_r 
+```
+
+Find stock log returns
+
+```{r}
+stocks <- list.files(pattern = "AX.csv")
+stocks_files <- list()
+index <- 1
+for(i in stocks){
+  name <- paste(substr(i,1,3), "data", sep="_")
+  data <- read.csv(i)
+  data$Date <- as.Date(data$Date)
+  data <- data %>% filter(Date > as.Date("2021-01-01"))
+  data$stock <- substr(i,1,3)
+  data$Adj.Close <- as.numeric(data$Adj.Close)
+  data$log_ret <- c(NA, (logb(data$Adj.Close[-1])-logb(data$Adj.Close))[1:nrow(data)-1])
+  data$rf <- rf_r$Daily_Return
+  data$excess_log_ret <- data$log_ret - rf_r$Daily_Return
+  
+  data <- as_tibble(data %>% select(stock, Date, Adj.Close, log_ret, rf, excess_log_ret))
+  assign(name, data)
+  stocks_files[index] <- data
+  index <- index + 1
+}
+```
+
+Minimum variance approach
+
+```{r}
+unit_matrix <- (matrix(rep(1,6), ncol=1, nrow=6))
+combinations <- combn(1:20,6, simplify = F)
+variances_collected <- c()
+weights_collected <- list()
+w_index <- 1
+returns_collected <- c()
+for(i in combinations){
+  portfolio_excess_returns <- list()
+  for(j in i){
+    temp <- eval(as.name(paste0(substr(stocks[j],1,3), "_data")))
+    portfolio_excess_returns <- append(portfolio_excess_returns, list(temp$excess_log_ret))
+  }
+  portfolio <- data.frame((sapply(portfolio_excess_returns,c)))[-1,]
+  var_cov <- matrix(cov(portfolio), ncol = 6, nrow = 6)
+  w <- (inv(var_cov) %*% unit_matrix)/(as.numeric(t(unit_matrix)%*%inv(var_cov)%*%unit_matrix))
+  weights_collected[[w_index]] <- c(w)
+  w_index <- w_index+1
+  portfolio_variance <- t(w)%*%var_cov%*%w
+  variances_collected <- c(variances_collected, portfolio_variance)
+  return <- t(w)%*%matrix(colMeans(portfolio))
+  returns_collected <- c(returns_collected, return)
+}
+min(variances_collected)
+max(returns_collected)
+sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
+which.max(sharpes)
+```
+
+```{r}
+unit_matrix <- (matrix(rep(1,6), ncol=1, nrow=6))
+combinations <- combn(1:20,6, simplify = F)
+variances_collected <- c()
+weights_collected <- list()
+w_index <- 1
+returns_collected <- c()
+for(i in combinations[which.max(sharpes)]){
+  portfolio_excess_returns <- list()
+  for(j in i){
+    temp <- eval(as.name(paste0(substr(stocks[j],1,3), "_data")))
+    portfolio_excess_returns <- append(portfolio_excess_returns, list(temp$excess_log_ret))
+  }
+  portfolio <- data.frame((sapply(portfolio_excess_returns,c)))[-1,]
+  var_cov <- matrix(cov(portfolio), ncol = 6, nrow = 6)
+  w <- (inv(var_cov) %*% unit_matrix)/(as.numeric(t(unit_matrix)%*%inv(var_cov)%*%unit_matrix))
+  weights_collected[[w_index]] <- c(w)
+  w_index <- w_index+1
+  portfolio_variance <- t(w)%*%var_cov%*%w
+  variances_collected <- c(variances_collected, portfolio_variance)
+  return <- t(w)%*%matrix(colMeans(portfolio))
+  returns_collected <- c(returns_collected, return)
+}
+min(variances_collected)
+max(returns_collected)
+sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
+```
+
+
+Sharpe Ratio Approach
+
+```{r}
+unit_matrix <- (matrix(rep(1,6), ncol=1, nrow=6))
+combinations <- combn(1:20,6, simplify = F)
+variances_collected <- c()
+weights_collected <- list()
+w_index <- 1
+returns_collected <- c()
+for(i in combinations){
+  portfolio_excess_returns <- list()
+  for(j in i){
+    temp <- eval(as.name(paste0(substr(stocks[j],1,3), "_data")))
+    portfolio_excess_returns <- append(portfolio_excess_returns, list(temp$excess_log_ret))
+  }
+  portfolio <- data.frame((sapply(portfolio_excess_returns,c)))[-1,]
+  var_cov <- matrix(cov(portfolio), ncol = 6, nrow = 6)
+  mu <- matrix(colMeans(portfolio), ncol = 1, nrow=6)
+  w <- (inv(var_cov) %*% mu)/(as.numeric(t(unit_matrix)%*%inv(var_cov)%*%mu))
+  weights_collected[[w_index]] <- c(w)
+  w_index <- w_index+1
+  portfolio_variance <- t(w)%*%var_cov%*%w
+  variances_collected <- c(variances_collected, portfolio_variance)
+  return <- t(w)%*%matrix(colMeans(portfolio))
+  returns_collected <- c(returns_collected, return)
+}
+min(variances_collected)
+max(returns_collected)
+sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
+which.max(sharpes)
+stocks[combinations[[which.max(sharpes)]]]
+weights_collected[which.max(sharpes)]
+```
+
+
+
+```{r}
+set.seed(5)
+weights_collected <- list()
+for(i in seq(1,1000)){
+  w_1 <- runif(1, min=0.08, max=0.3)
+  w_2 <- runif(1, min=0.08, max=0.2)
+  w_3 <- 0.5-w_1-w_2
+  w_4 <- runif(1, min=0.08, max=0.3)
+  w_5 <- runif(1, min=0.08, max=0.2)
+  w_6 <- 0.5-w_4-w_5
+  weights <- c(w_1,w_2,w_3,w_4,w_5,w_6)
+  weights_collected[[i]] <- sample(weights, 6, replace=FALSE)
+}
+matrix(weights_collected[[1]], ncol=1)
+temp <- data.frame((weights_collected))
+rownames(temp) <- c("X1", "X2", "X3", "X4", "X5", "X6")
+colMeans(as.data.frame(t(temp)))
+which.max(as.data.frame(t(temp))$X2)
+as.data.frame(t(temp))[933,]
+```
+
+```{r}
+Max_Sharpes <- c()
+weights <- list()
+
+for(i in combinations){
+  portfolio_excess_returns <- list()
+  for(j in i){
+    temp <- eval(as.name(paste0(substr(stocks[j],1,3), "_data")))
+    portfolio_excess_returns <- append(portfolio_excess_returns, list(temp$excess_log_ret))
+  }
+  portfolio <- data.frame((sapply(portfolio_excess_returns,c)))[-1,]
+  var_cov <- matrix(cov(portfolio), ncol = 6, nrow = 6)
+  
+  variances_collected <- c()
+  returns_collected <- c()
+  for(i in seq(1,length(weights_collected))){
+   w <- matrix(weights_collected[[i]])
+   portfolio_variance <- t(w)%*%var_cov%*%w
+   variances_collected <- c(variances_collected, portfolio_variance)
+   return <- t(w)%*%matrix(colMeans(portfolio))
+   returns_collected <- c(returns_collected, return)
+   
+   
+  }  
+  sharpe <- sqrt(252)*returns_collected/sqrt(variances_collected)
+  Max_Sharpes <- c(Max_Sharpes, max(sharpe))
+  weights[[i]] <-  c(weights_collected[[which.max(sharpe)]])
+}
+
+which.max(Max_Sharpes)
+max(Max_Sharpes)
+stocks[combinations[[which.max(Max_Sharpes)]]]
+stocks[combinations[[30001]]]
+```
+
+```{r}
+Single_Sharpe <- c()
+Single_Weigths <- list()
+
+for(i in combinations[which.max(Max_Sharpes)]){
+  portfolio_excess_returns <- list()
+  for(j in i){
+    temp <- eval(as.name(paste0(substr(stocks[j],1,3), "_data")))
+    portfolio_excess_returns <- append(portfolio_excess_returns, list(temp$excess_log_ret))
+  }
+  portfolio <- data.frame((sapply(portfolio_excess_returns,c)))[-1,]
+  var_cov <- matrix(cov(portfolio), ncol = 6, nrow = 6)
+  
+  variances_collected <- c()
+  returns_collected <- c()
+  for(i in seq(1,length(weights_collected))){
+   w <- matrix(weights_collected[[i]])
+   portfolio_variance <- t(w)%*%var_cov%*%w
+   variances_collected <- c(variances_collected, portfolio_variance)
+   return <- t(w)%*%matrix(colMeans(portfolio))
+   returns_collected <- c(returns_collected, return)
+   #print(return/sqrt(portfolio_variance))
+   
+   
+  }  
+  sharpe <- sqrt(252)*returns_collected/sqrt(variances_collected)
+  Single_Sharpe <- c(Single_Sharpe, max(sharpe))
+  Single_Weigths <-  c(weights_collected[[which.max(sharpe)]])
+}
+mean(portfolio$X1)
+#write.csv(t1, "vcov_2.csv")
+```
+
+```{r}
+mean(NAB_data$excess_log_ret, na.rm=T)
+mean(QBE_data$excess_log_ret, na.rm=T)
+mean(RMD_data$excess_log_ret, na.rm=T)
+mean(AMC_data$excess_log_ret, na.rm=T)
+mean(TLS_data$excess_log_ret, na.rm=T)
+mean(WDS_data$excess_log_ret, na.rm=T)
+
+NAB_data
+```
+
+```{r}
+rf_r
+```
+
