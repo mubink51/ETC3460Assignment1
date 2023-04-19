@@ -15,7 +15,7 @@ rf_r <- read.csv("rf_r.csv")
 rf_r$Daily_Return <- as.numeric(rf_r$Daily_Return)/100
 rf_r$Date <- as.Date(rf_r$Date, format = "%d-%m-%Y")
 rf_r <- rf_r %>% filter(Date > as.Date("2021-01-01"))
-rf_r 
+
 ```
 
 Read in all stock data via a loop. Collect stock names in a vector called 'stocks'. Calculate daily excess log returns for each stock.
@@ -67,10 +67,10 @@ for(i in combinations){
   return <- t(w)%*%matrix(colMeans(portfolio))
   returns_collected <- c(returns_collected, return)
 }
-min(variances_collected)
-max(returns_collected)
+
 sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
-which.max(sharpes) #Combination of stocks which gives maximum Sharpe
+max(sharpes) #Combination of stocks which gives maximum Sharpe
+combinations[[which.max(sharpes)]]
 ```
 Run the same analysis for the portfolio with highest Sharpe ratio, this step is unnecessary but helps in understanding how Sharpe ratio is calculated. 
 ```{r}
@@ -96,8 +96,7 @@ for(i in combinations[which.max(sharpes)]){
   return <- t(w)%*%matrix(colMeans(portfolio))
   returns_collected <- c(returns_collected, return)
 }
-min(variances_collected)
-max(returns_collected)
+
 sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
 sharpes
 ```
@@ -191,7 +190,6 @@ for(i in combinations){
 which.max(Max_Sharpes)
 max(Max_Sharpes)
 stocks[combinations[[which.max(Max_Sharpes)]]]
-stocks[combinations[[30001]]]
 ```
 
 ```{r}
@@ -223,9 +221,9 @@ for(i in combinations[which.max(Max_Sharpes)]){
   Single_Sharpe <- c(Single_Sharpe, max(sharpe))
   Single_Weigths <-  c(weights_collected[[which.max(sharpe)]])
 }
-mean(portfolio$X1)
-#write.csv(t1, "vcov_2.csv")
 
+
+Single_Weigths
 ```
 
 ```{r}
@@ -236,18 +234,5 @@ ggplot(Sharpe_Chart) + geom_point(aes(x = variances_collected, y = returns_colle
 ```
 
 
-```{r}
-mean(NAB_data$excess_log_ret, na.rm=T)
-mean(QBE_data$excess_log_ret, na.rm=T)
-mean(RMD_data$excess_log_ret, na.rm=T)
-mean(AMC_data$excess_log_ret, na.rm=T)
-mean(TLS_data$excess_log_ret, na.rm=T)
-mean(WDS_data$excess_log_ret, na.rm=T)
 
-sd(WDS_data$excess_log_ret, na.rm = T)
-```
-
-```{r}
-rf_r
-```
 
