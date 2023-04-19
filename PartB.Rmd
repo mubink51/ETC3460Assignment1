@@ -3,7 +3,7 @@ title: "PartBETC3460"
 output: html_document
 date: "2023-04-12"
 ---
-
+Load libraries, set working directory and load in risk-free rate data. Filter data to adjust for sample period. 
 ```{r}
 library(tidyverse)
 library(readxl)
@@ -18,7 +18,7 @@ rf_r <- rf_r %>% filter(Date > as.Date("2021-01-01"))
 rf_r 
 ```
 
-Find stock log returns
+Read in all stock data via a loop. Collect stock names in a vector called 'stocks'. Calculate daily excess log returns for each stock.
 
 ```{r}
 stocks <- list.files(pattern = "AX.csv")
@@ -42,24 +42,24 @@ for(i in stocks){
 }
 ```
 
-Minimum variance approach
+Finding an optimal portfolio via the minimum variance approach
 
 ```{r}
 unit_matrix <- (matrix(rep(1,6), ncol=1, nrow=6))
-combinations <- combn(1:20,6, simplify = F)
-variances_collected <- c()
-weights_collected <- list()
+combinations <- combn(1:20,6, simplify = F) #20 C 6
+variances_collected <- c() #Stores variance of each portfolio
+weights_collected <- list() #Stores weights of each MVP
 w_index <- 1
-returns_collected <- c()
+returns_collected <- c() #Stores returns of each portfolio 
 for(i in combinations){
   portfolio_excess_returns <- list()
   for(j in i){
     temp <- eval(as.name(paste0(substr(stocks[j],1,3), "_data")))
     portfolio_excess_returns <- append(portfolio_excess_returns, list(temp$excess_log_ret))
   }
-  portfolio <- data.frame((sapply(portfolio_excess_returns,c)))[-1,]
-  var_cov <- matrix(cov(portfolio), ncol = 6, nrow = 6)
-  w <- (inv(var_cov) %*% unit_matrix)/(as.numeric(t(unit_matrix)%*%inv(var_cov)%*%unit_matrix))
+  portfolio <- data.frame((sapply(portfolio_excess_returns,c)))[-1,] #Construct data frame of excess log returns in portfolio
+  var_cov <- matrix(cov(portfolio), ncol = 6, nrow = 6) #Variance covariance matrix of excess log returns
+  w <- (inv(var_cov) %*% unit_matrix)/(as.numeric(t(unit_matrix)%*%inv(var_cov)%*%unit_matrix)) #Weights given by analytic expression
   weights_collected[[w_index]] <- c(w)
   w_index <- w_index+1
   portfolio_variance <- t(w)%*%var_cov%*%w
@@ -70,9 +70,9 @@ for(i in combinations){
 min(variances_collected)
 max(returns_collected)
 sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
-which.max(sharpes)
+which.max(sharpes) #Combination of stocks which gives maximum Sharpe
 ```
-
+Run the same analysis for the portfolio with highest Sharpe ratio, this step is unnecessary but helps in understanding how Sharpe ratio is calculated. 
 ```{r}
 unit_matrix <- (matrix(rep(1,6), ncol=1, nrow=6))
 combinations <- combn(1:20,6, simplify = F)
@@ -99,11 +99,12 @@ for(i in combinations[which.max(sharpes)]){
 min(variances_collected)
 max(returns_collected)
 sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
+sharpes
 ```
-
+A Sharpe ratio of 1.1873 can be achieved via this approach. 
 
 Sharpe Ratio Approach
-
+Analytic approach - Short selling allowed
 ```{r}
 unit_matrix <- (matrix(rep(1,6), ncol=1, nrow=6))
 combinations <- combn(1:20,6, simplify = F)
@@ -128,15 +129,14 @@ for(i in combinations){
   return <- t(w)%*%matrix(colMeans(portfolio))
   returns_collected <- c(returns_collected, return)
 }
-min(variances_collected)
-max(returns_collected)
+
 sharpes <- sqrt(252)*returns_collected/sqrt(variances_collected)
-which.max(sharpes)
+max(sharpes)
 stocks[combinations[[which.max(sharpes)]]]
 weights_collected[which.max(sharpes)]
 ```
 
-
+We get a very large Sharpe ratio, however few reasonable investors would be okay with shorting a big 4 bank over a whole month. While the results are promising, this portfolio is impractical and quite risky. 
 
 ```{r}
 set.seed(5)
@@ -225,7 +225,16 @@ for(i in combinations[which.max(Max_Sharpes)]){
 }
 mean(portfolio$X1)
 #write.csv(t1, "vcov_2.csv")
+
 ```
+
+```{r}
+Sharpe_Chart <- data.frame(variances_collected, returns_collected)
+Sharpe_Chart$variances_collected <- sqrt(252*Sharpe_Chart$variances_collected)
+Sharpe_Chart$returns_collected <- 252*Sharpe_Chart$returns_collected
+ggplot(Sharpe_Chart) + geom_point(aes(x = variances_collected, y = returns_collected), color = "blue", alpha = 0.5) + xlab("Standard Deviation") + ylab("Returns") + xlim(c(0.1,0.18)) + ylim(c(0.05,0.2)) + ggtitle("Returns and Variances of 1000 different asset allocations", subtitle = "Portfolio #38441 out of #38760")
+```
+
 
 ```{r}
 mean(NAB_data$excess_log_ret, na.rm=T)
@@ -235,7 +244,7 @@ mean(AMC_data$excess_log_ret, na.rm=T)
 mean(TLS_data$excess_log_ret, na.rm=T)
 mean(WDS_data$excess_log_ret, na.rm=T)
 
-NAB_data
+sd(WDS_data$excess_log_ret, na.rm = T)
 ```
 
 ```{r}
